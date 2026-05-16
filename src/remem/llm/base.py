@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from remem.utils.config_utils import BaseConfig
+from remem.utils.config_utils import BaseConfig, sanitize_config_for_logging
 from remem.utils.llm_utils import TextChatMessage
 from remem.utils.logging_utils import get_logger
 
@@ -106,7 +106,9 @@ class BaseLLM(ABC):
             self.global_config = BaseConfig()
         else:
             self.global_config = global_config
-        logger.debug(f"Loading {self.__class__.__name__} with global_config: {asdict(self.global_config)}")
+        logger.debug(
+            f"Loading {self.__class__.__name__} with global_config: {sanitize_config_for_logging(asdict(self.global_config))}"
+        )
 
         self.llm_name = self.global_config.llm_name
         logger.debug(f"Init {self.__class__.__name__}'s llm_name with: {self.llm_name}")

@@ -133,7 +133,10 @@ class TemporalStrategy(RAGStrategy):
             verbatim_key = compute_mdhash_id(verbatim, prefix="verbatim-")
 
             for fact in facts:
-                fact_key = compute_mdhash_id(str(fact), prefix="facts-")
+                from remem.agent.tools.base_tool import BaseTool
+
+                fact_content = BaseTool.format_fact_dict_for_embedding(fact)
+                fact_key = compute_mdhash_id(fact_content, prefix="facts-")
                 temporal_edges.append(
                     {
                         "source": verbatim_key,
@@ -143,6 +146,35 @@ class TemporalStrategy(RAGStrategy):
                         "weight": 1.0,
                     }
                 )
+
+                subject = fact.get("subject", "")
+                obj = fact.get("object", "")
+                predicate = fact.get("predicate", "")
+                qualifiers = fact.get("qualifiers", {})
+
+                if subject:
+                    subject_key = compute_mdhash_id(subject, prefix="entity-")
+                    temporal_edges.append(
+                        {
+                            "source": subject_key,
+                            "target": fact_key,
+                            "predicate": predicate,
+                            "qualifiers": qualifiers,
+                            "weight": 1.0,
+                        }
+                    )
+
+                if obj:
+                    object_key = compute_mdhash_id(obj, prefix="entity-")
+                    temporal_edges.append(
+                        {
+                            "source": fact_key,
+                            "target": object_key,
+                            "predicate": predicate,
+                            "qualifiers": qualifiers,
+                            "weight": 1.0,
+                        }
+                    )
 
         # Store temporal edges for later graph construction
         self.remem.temporal_edges = temporal_edges
@@ -249,23 +281,43 @@ class TemporalStrategy(RAGStrategy):
         node_chunks_dict = {}
 
         # Add chunks from all available stores
-        store_names = ["verbatim", "temporal_entities", "time_entities", "facts"]
+        store_names = ["verbatim", "entity", "facts"]
         for store_name in store_names:
             store = self.remem.episodic_embedding_stores.get(store_name)
             if store:
                 store_chunks = store.get_hash_id_to_row_readonly()
                 node_chunks_dict.update(store_chunks)
 
-        # Create a new GraphAgent instance for each query to ensure thread safety
-        from ..agent.graph_agent import GraphAgent
+        # Create a new agent instance for each query to ensure thread safety
+        agent_type = getattr(self.remem.global_config, "agent_type", "legacy")
+        if agent_type == "dspy_react":
+            from remem.agent.dspy_react_agent import DSPyReactGraphAgent
 
-        graph_agent = GraphAgent(
-            llm_model=self.remem.qa_llm, node_chunks_dict=node_chunks_dict, remem_instance=self.remem, logger=logger
-        )
+            graph_agent = DSPyReactGraphAgent(
+                llm_model=self.remem.qa_llm, node_chunks_dict=node_chunks_dict, remem_instance=self.remem, logger=logger
+            )
+        elif agent_type == "dspy_rlm":
+            from remem.agent.dspy_rlm_agent import DSPyRLMGraphAgent
+
+            graph_agent = DSPyRLMGraphAgent(
+                llm_model=self.remem.qa_llm, node_chunks_dict=node_chunks_dict, remem_instance=self.remem, logger=logger
+            )
+        else:
+            from ..agent.graph_agent import GraphAgent
+
+            graph_agent = GraphAgent(
+                llm_model=self.remem.qa_llm,
+                node_chunks_dict=node_chunks_dict,
+                remem_instance=self.remem,
+                logger=logger,
+            )
 
         # Run agent-based retrieval (no need to pass max_steps, it's read from config)
         agent_result = graph_agent.retrieve_with_agent(
-            query=query, gold_answer=gold_answer, beam_size=self.remem.global_config.qa_top_k
+            query=query,
+            gold_answer=gold_answer,
+            beam_size=self.remem.global_config.qa_top_k,
+            question_metadata=None,
         )
 
         # Convert agent results to format compatible with traditional retrieval
@@ -462,7 +514,8 @@ class TemporalStrategy(RAGStrategy):
             """Get entity content from graph node using the entity key."""
             try:
                 node_idx = igraph_hash_id_to_idx[entity_key]
-                return self.remem.graph.vs[node_idx].get("content", entity_key)
+                node = self.remem.graph.vs[node_idx]
+                return node["content"] if "content" in node.attributes() else entity_key
             except (ValueError, KeyError):
                 return entity_key
 

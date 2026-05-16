@@ -1,4 +1,5 @@
 import json
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict
 
@@ -80,7 +81,8 @@ class TemporalExtraction:
         total_completion_tokens = 0
         num_cache_hit = 0
 
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        max_workers = int(os.environ.get("TEMPORAL_EXTRACTION_WORKERS", "8"))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Create extraction futures for each chunk
             extraction_futures = {
                 executor.submit(self.temporal_extraction, chunk_key, passage): chunk_key

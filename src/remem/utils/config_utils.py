@@ -1,10 +1,101 @@
 import os
 from dataclasses import dataclass, field
-from typing import Literal, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 from remem.utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
+
+SENSITIVE_CONFIG_FIELDS = {"llm_api_key", "embedding_api_key"}
+
+
+def _clean_optional_value(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return value
+    cleaned = value.strip().strip('"').strip("'")
+    return cleaned or None
+
+
+def is_openai_embedding_model(embedding_model_name: Optional[str]) -> bool:
+    return bool(embedding_model_name and "text-embedding" in embedding_model_name)
+
+
+def resolve_llm_api_key(config: Optional["BaseConfig"] = None, api_key: Optional[str] = None) -> Optional[str]:
+    return next(
+        (
+            candidate
+            for candidate in (
+                _clean_optional_value(api_key),
+                _clean_optional_value(getattr(config, "llm_api_key", None)) if config is not None else None,
+                _clean_optional_value(os.getenv("LLM_API_KEY")),
+                _clean_optional_value(os.getenv("OPENAI_API_KEY")),
+            )
+            if candidate is not None
+        ),
+        None,
+    )
+
+
+def resolve_embedding_api_key(
+    config: Optional["BaseConfig"] = None,
+    embedding_model_name: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> Optional[str]:
+    candidates = [
+        _clean_optional_value(api_key),
+        _clean_optional_value(getattr(config, "embedding_api_key", None)) if config is not None else None,
+        _clean_optional_value(os.getenv("EMBEDDING_API_KEY")),
+    ]
+    if is_openai_embedding_model(embedding_model_name):
+        candidates.append(_clean_optional_value(os.getenv("OPENAI_API_KEY")))
+    else:
+        candidates.extend(
+            [
+                _clean_optional_value(os.getenv("OPENAI_API_KEY")),
+                _clean_optional_value(os.getenv("LLM_API_KEY")),
+            ]
+        )
+    return next((candidate for candidate in candidates if candidate is not None), None)
+
+
+def resolve_embedding_base_url(
+    config: Optional["BaseConfig"] = None,
+    embedding_model_name: Optional[str] = None,
+    openai_style_server: bool = True,
+    base_url: Optional[str] = None,
+) -> str:
+    resolved_base_url = next(
+        (
+            candidate
+            for candidate in (
+                _clean_optional_value(base_url),
+                _clean_optional_value(getattr(config, "embedding_base_url", None)) if config is not None else None,
+                _clean_optional_value(os.getenv("EMBEDDING_BASE_URL")),
+            )
+            if candidate is not None
+        ),
+        None,
+    )
+    if resolved_base_url is not None:
+        return resolved_base_url
+    if openai_style_server and not is_openai_embedding_model(embedding_model_name):
+        return "http://localhost:8001/v1/"
+    return "https://api.openai.com/v1/"
+
+
+def sanitize_config_for_logging(config: Union["BaseConfig", dict[str, Any], Any]) -> Union[dict[str, Any], Any]:
+    if hasattr(config, "__dataclass_fields__"):
+        config = {field_name: getattr(config, field_name) for field_name in config.__dataclass_fields__}
+    elif not isinstance(config, dict):
+        return config
+
+    sanitized = dict(config)
+    for field_name in SENSITIVE_CONFIG_FIELDS:
+        if sanitized.get(field_name):
+            sanitized[field_name] = "***"
+    return sanitized
 
 
 @dataclass
@@ -19,6 +110,10 @@ class BaseConfig:
     qa_llm_label: str = field(default=None, metadata={"help": "Label of the LLM model to use for QA."})
     llm_base_url: str = field(
         default=None, metadata={"help": "Base URL for the LLM model, if none, means using OPENAI service."}
+    )
+    llm_api_key: Optional[str] = field(
+        default=None,
+        metadata={"help": "Optional explicit API key for the LLM provider. Falls back to LLM_API_KEY/OPENAI_API_KEY."},
     )
     max_new_tokens: Union[None, int] = field(
         default=2048, metadata={"help": "Max new tokens to generate in each inference."}
@@ -98,6 +193,16 @@ class BaseConfig:
     embedding_model_name: str = field(
         default="nvidia/NV-Embed-v2", metadata={"help": "Class name indicating which embedding model to use."}
     )
+    embedding_base_url: Optional[str] = field(
+        default=None,
+        metadata={"help": "Optional explicit base URL for the embedding provider. Falls back to EMBEDDING_BASE_URL."},
+    )
+    embedding_api_key: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "Optional explicit API key for the embedding provider. Falls back to EMBEDDING_API_KEY/OPENAI_API_KEY."
+        },
+    )
     embedding_batch_size: int = field(default=16, metadata={"help": "Batch size of calling embedding model."})
     embedding_return_as_normalized: bool = field(
         default=True, metadata={"help": "Whether to normalize encoded embeddings not."}
@@ -161,6 +266,10 @@ class BaseConfig:
     agent_fixed_retrieval_tool: str = field(
         default="semantic_retrieve",
         metadata={"help": "Which retrieval tool to use in fixed_tools mode: 'semantic_retrieve' or 'lexical_retrieve'"},
+    )
+    agent_type: Literal["legacy", "dspy_react", "dspy_rlm"] = field(
+        default="legacy",
+        metadata={"help": "Which agent controller to use for graph-based retrieval."},
     )
 
     # Evaluation specific attributes

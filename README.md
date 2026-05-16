@@ -1,5 +1,22 @@
 # REMem
 
+## Exploratory TimelineKGQA RLM Artifact
+
+This fork-ready copy includes a small, pedagogical TimelineKGQA example that demonstrates recursive DSPy RLM branch/gather reasoning over temporal graph evidence.
+
+Start here:
+
+```text
+docs/index.md
+examples/timelinekgqa/README.md
+```
+
+The reference trace and HTML visualization are packaged under:
+
+```text
+docs/artifacts/
+```
+
 ## What is REMem?
 
 REMem (**Re**asoning with **E**pisodic **Mem**ory) is a retrieval-augmented generation system that organizes documents into a hybrid memory graph of entities, facts, and episodic gist traces. It combines dense retrieval with graph-based exploration to answer complex, multi-hop, and temporal questions over long-form text. See our [ICLR 2026 paper](https://www.arxiv.org/pdf/2602.13530) for details.
