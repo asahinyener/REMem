@@ -34,6 +34,12 @@ Final answer:
 
 ## Trace Visualization
 
+Read the pedagogical blog post:
+
+```text
+docs/blog/knowledge-graphs-recursive-rlm.html
+```
+
 Open the HTML visualization:
 
 ```text
