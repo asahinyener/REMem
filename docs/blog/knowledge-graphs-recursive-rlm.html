@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>From Knowledge Graphs to Recursive RLMs</title>
+  <style>
+    :root {
+      --ink: #182132;
+      --muted: #5d6c7f;
+      --line: #d0d8e4;
+      --bg: #fbfcfd;
+      --panel: #ffffff;
+      --blue: #275f9f;
+      --green: #12664b;
+      --plum: #644a92;
+      --code: #101827;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #eef1f5;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.62;
+    }
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 44px 24px 72px;
+      background: var(--bg);
+    }
+    nav {
+      margin-bottom: 30px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    nav a {
+      color: var(--blue);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    h1 {
+      margin: 0;
+      max-width: 780px;
+      font-size: 44px;
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+    .dek {
+      margin: 18px 0 0;
+      max-width: 780px;
+      color: var(--muted);
+      font-size: 20px;
+    }
+    .note {
+      margin: 28px 0 34px;
+      border-left: 6px solid var(--plum);
+      background: #f3f0f8;
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      font-size: 16px;
+    }
+    article {
+      margin-top: 30px;
+    }
+    h2 {
+      margin: 38px 0 12px;
+      font-size: 27px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    p {
+      margin: 0 0 16px;
+      font-size: 17px;
+    }
+    a {
+      color: var(--blue);
+      font-weight: 700;
+    }
+    ul {
+      margin: 0 0 18px 22px;
+      padding: 0;
+    }
+    li {
+      margin: 6px 0;
+      font-size: 17px;
+    }
+    pre {
+      margin: 14px 0 20px;
+      padding: 15px 17px;
+      overflow: auto;
+      border-radius: 8px;
+      background: var(--code);
+      color: #e7eef8;
+      font-size: 14px;
+      line-height: 1.48;
+    }
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      letter-spacing: 0;
+    }
+    .callout {
+      margin: 20px 0;
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .callout p:last-child {
+      margin-bottom: 0;
+    }
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .button {
+      display: inline-block;
+      border: 1px solid #b8c7d8;
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 10px 13px;
+      color: var(--ink);
+      text-decoration: none;
+      font-weight: 760;
+      line-height: 1.25;
+    }
+    .button.primary {
+      background: #edf5ff;
+      border-color: #9dbde3;
+      color: #17477e;
+    }
+    @media (max-width: 720px) {
+      main { padding: 32px 18px 56px; }
+      h1 { font-size: 34px; }
+      .dek { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <nav><a href="../index.html">Recursive RLM artifact</a> / Blog</nav>
+
+    <header>
+      <h1>From Knowledge Graphs to Recursive RLMs</h1>
+      <p class="dek">A pedagogical walkthrough from search-card knowledge graphs to temporal graph search, neuro-symbolic agents, and a recursive DSPy RLM trace over TimelineKGQA.</p>
+    </header>
+
+    <div class="note">
+      This post explains the small TimelineKGQA artifact in this repository. The trace is not a new benchmark result. It is a compact example of how symbolic graph structure and language-model reasoning can work together.
+    </div>
+
+    <article>
+      <h2>Abstract</h2>
+      <p>Information retrieval from sources that change over time require structuring  and saving certain attributes of a fact across time. [<a href="#ref-tequila">TEQUILA</a>; <a href="#ref-exaqt">EXAQT</a>; <a href="#ref-rtqa">RTQA</a>; <a href="#ref-progtqa">Prog-TQA</a>; <a href="#ref-multitq">MultiTQ/MultiQA</a>] Human endevours and science belong to this category of sources, where the state of the art is always on the move and the application of any fact is time sensitive.</p>
+      <p>The ontology of time sensitive facts and the method to save them are wide and varied however[<a href="#ref-allen">Allen 1983</a>; <a href="#ref-eventcalculus">Event Calculus</a>; <a href="#ref-teilp">TEILP</a>; <a href="#ref-tilp">TILP</a>; <a href="#ref-progtqa">Prog-TQA</a>] a small interface common to all of the approaches can be used for analysis. This implementation and demonstration uses a knowledge graph based method to extract named entities and predicates from the raw data giving a processed triplet structure. Nodes in the graph are named entities and the predicate is encoded into the edges of the graph representation.</p>
+      <p>A certain set of questions over this time graph  that explicitly require comparisons of non intersecting triplet entries are part of the set of the questions that require multi-hop reasoning. Decomposing the queries into its components 
+and using paralel approaches of information fetching keep increasing the depth of search without significant cost to attention based context[<a href="#ref-rtqa">RTQA</a>] and yield higher accuracy at lower cost. Tool calling with python functions is a strong
+fit for modern day LLMs due to abundance and variance of such data in the pretraining corpus[<a href="#ref-tremu">TReMu</a>], 
+modern day harnesses enable REPL like stateful interaction for code execution environments[dspy; <a href="#ref-rlm">RLM</a>]. Work of [<a href="#ref-rlm">RLM</a>] treats each turn to be composed of emitted code to be executed against the REPL, and supplies the REPL state and the produced output back to the LLM. Function that is of interest is calling sub-llms with their own scoped REPL environment. This enables the model to write the execution and retrieval stages as executed python code and have stateful returns of context from the sub-llm calls.</p>
+      <p>RLM harness provides the ability to delegate the execution and aggregation to symbolic processing , and the knowledge graph enables these processes to statefuly interact with the raw knowledge through functions with semantic queries and graph operations. The following demo is based on the REMEM architecture, with dspy enabled RLM harness and Deno based python execution through the bundled docker image. It explores the intermediate stages and representation of the algorithm and aims to introduce these concepts of information retrieval to a wider audience.</p>
+
+      <h2>Knowledge Graphs</h2>
+      <p>A knowledge graph stores facts as entities and relationships.</p>
+      <pre><code>Andre Hahn --position held--&gt; member of the German Bundestag
+Jason Shackell --member of sports team--&gt; Burnley F.C.</code></pre>
+      <p>This representation is old in spirit. Semantic networks, expert systems, RDF triples, ontologies, linked data, and knowledge bases all tried to make facts machine-readable. The phrase knowledge graph became familiar to many people through web search.</p>
+      <p>Google's 2012 Knowledge Graph announcement framed the shift as search over things, not only strings. Instead of treating a query as a bag of words, a search engine can recognize real entities, connect them to known facts, and show a card with structured information. A card for a person, city, film, company, or sports team works because the system has some model of entities and their relationships.</p>
+      <p>That public search-card experience is a useful way to explain the idea: a knowledge graph gives software handles for real-world things.</p>
+
+      <h2>Extracting Text into a Graph</h2>
+      <p>A graph can start from simple extraction. Given a sentence:</p>
+      <pre><code>Andre Hahn served as a member of the German Bundestag from 2013 to 2017.</code></pre>
+      <p>an extractor can produce a triple:</p>
+      <pre><code>subject: Andre Hahn
+relation: position held
+object: member of the German Bundestag</code></pre>
+      <p>The triple becomes edges and nodes:</p>
+      <pre><code>(Andre Hahn) --[position held]--&gt; (member of the German Bundestag)</code></pre>
+      <p>This is useful because later we can search by entity, relation, or nearby facts. The graph gives the retrieval system structure. It is no longer only matching text chunks; it can follow relationships.</p>
+
+      <h2>Adding Time</h2>
+      <p>Many facts are only true during an interval. A temporal knowledge graph annotates facts with dates:</p>
+      <pre><code>Andre Hahn --position held--&gt; member of the German Bundestag
+valid from: 2013-01-01
+valid to:   2017-01-01
+
+Jason Shackell --member of sports team--&gt; Burnley F.C.
+valid from: 2012-01-01
+valid to:   2015-01-01</code></pre>
+      <p>Time turns lookup into reasoning. The question is not only "what relation exists?" It may be "when were two relations true at the same time?"</p>
+      <p>For the TimelineKGQA question in this artifact, the answer is the intersection of two intervals:</p>
+      <pre><code>max(2013-01-01, 2012-01-01) = 2013-01-01
+min(2017-01-01, 2015-01-01) = 2015-01-01</code></pre>
+      <p>So the overlap is:</p>
+      <pre><code>(2013-01-01, 2015-01-01)</code></pre>
+
+      <h2>Tools over the Graph</h2>
+      <p>ReMem exposes graph operations as tools. A language-model controller can call those tools to retrieve evidence.</p>
+      <p>Examples include semantic retrieval over indexed facts, entity-context lookup, and gist-context lookup.</p>
+      <p>The important detail is the division of labor. The graph stores structured evidence. The tools retrieve parts of it. The language model decides which tool to call, reads the result, and decides what to do next.</p>
+      <div class="callout">
+        <p>That makes the system neuro-symbolic in a practical sense. The neural part interprets the question and plans. The symbolic part stores entities, relations, and dates in a form that can be inspected and computed over.</p>
+      </div>
+
+      <h2>From ReAct Loops to Recursive Loops</h2>
+      <p>A standard ReAct-style agent alternates between reasoning and action:</p>
+      <pre><code>think -&gt; call tool -&gt; observe result -&gt; think -&gt; call tool -&gt; observe result</code></pre>
+      <p>This is enough for many tasks. But some questions contain independent subproblems. The TimelineKGQA example has two branches:</p>
+      <pre><code>1. Find Andre Hahn's Bundestag interval.
+2. Find Jason Shackell's Burnley F.C. interval.</code></pre>
+      <p>A recursive loop lets a parent model delegate those branches to child models. Each child can run its own observe-act loop over the same graph tools. The parent then gathers the branch results and performs the final aggregation.</p>
+      <pre><code>parent RLM
+  -&gt; child RLM: find interval A
+       -&gt; graph tool calls
+       -&gt; evidence and interval
+  -&gt; child RLM: find interval B
+       -&gt; graph tool calls
+       -&gt; evidence and interval
+  -&gt; parent REPL computes overlap
+  -&gt; final answer</code></pre>
+
+      <h2>What an RLM Does</h2>
+      <p>In DSPy, an RLM is a language model with a Python REPL in its action space. It can write and run small pieces of Python while solving a task.</p>
+      <p>That matters because not every step should be done in prose. Once the model has two date intervals, Python is the right place to compute their intersection:</p>
+      <pre><code>hahn = ("2013-01-01", "2017-01-01")
+shackell = ("2012-01-01", "2015-01-01")
+
+overlap_start = max(hahn[0], shackell[0])
+overlap_end = min(hahn[1], shackell[1])
+answer = (overlap_start, overlap_end)</code></pre>
+      <p>Recursive RLMs add another operation: the parent can call sub-LMs. In this demo, the parent uses <code>llm_query_batched</code> to ask child RLMs to solve the independent temporal lookups. Those child RLMs can use graph tools themselves.</p>
+      <p>The result is a small branch-and-gather program:</p>
+      <pre><code>branch: ask child RLMs to gather evidence
+gather: store their evidence in the parent REPL
+compute: intersect dates in Python
+submit: return the final answer</code></pre>
+
+      <h2>The TimelineKGQA Trace</h2>
+      <p>The question is:</p>
+      <pre><code>During which period did Andre Hahn serve as a member of the German Bundestag
+while Jason Shackell was a member of Burnley F.C.?</code></pre>
+      <p>The parent RLM creates two branch prompts:</p>
+      <pre><code>Find the exact period when Andre Hahn served as a member of the German Bundestag.
+Find the exact period when Jason Shackell was a member of Burnley F.C.</code></pre>
+      <p>Each branch searches the graph. The parent receives the two intervals:</p>
+      <pre><code>Andre Hahn:      2013-01-01 to 2017-01-01
+Jason Shackell: 2012-01-01 to 2015-01-01</code></pre>
+      <p>The parent computes the overlap in the REPL and submits:</p>
+      <pre><code>(2013-01-01, 2015-01-01)</code></pre>
+      <p>The packaged trace records:</p>
+      <pre><code>parent RLM trajectory steps: 3
+graph tool interactions: 10
+contains llm_query_batched: yes
+ExactMatch: 1.0</code></pre>
+
+      <h2>Why This Example Is Useful</h2>
+      <p>This example is small enough to inspect by hand, but it contains the core pattern:</p>
+      <ul>
+        <li>extract facts into a graph</li>
+        <li>attach temporal qualifiers</li>
+        <li>expose graph search as tools</li>
+        <li>let a language model choose tool calls</li>
+        <li>let recursive child models solve independent branches</li>
+        <li>use a REPL for exact computation</li>
+      </ul>
+      <p>That is the value of the artifact. It makes the control flow visible.</p>
+
+      <h2>Links</h2>
+      <div class="links">
+        <a class="button primary" href="../artifacts/visualizations/timelinekgqa_q25107_recursive_rlm_trace.html">Open Trace Visualization</a>
+        <a class="button" href="../artifacts/traces/timelinekgqa_q25107_recursive_rlm_trace.json">Open Trace JSON</a>
+        <a class="button" href="https://github.com/asahinyener/REMem/blob/codex/timelinekgqa-recursive-rlm-artifact/examples/timelinekgqa/README.md">Read Reproduction Notes</a>
+        <a class="button" href="https://blog.google/products/search/introducing-knowledge-graph-things-not/">Google Knowledge Graph Announcement</a>
+      </div>
+      <h2>References</h2>
+      <p id="ref-allen">Allen, J. F. (1983). Maintaining knowledge about temporal intervals. <em>Communications of the ACM, 26</em>(11), 832-843. <a href="https://doi.org/10.1145/182.358434">https://doi.org/10.1145/182.358434</a></p>
+      <p id="ref-eventcalculus">Kowalski, R., &amp; Sergot, M. (1986). A logic-based calculus of events. <em>New Generation Computing, 4</em>(1), 67-95. <a href="https://doi.org/10.1007/BF03037383">https://doi.org/10.1007/BF03037383</a></p>
+      <p id="ref-tequila">Jia, Z., Abujabal, A., Saha Roy, R., Stroetgen, J., &amp; Weikum, G. (2018). TEQUILA: Temporal Question Answering over Knowledge Bases. In <em>Proceedings of the 27th ACM International Conference on Information and Knowledge Management (CIKM '18)</em>. <a href="https://arxiv.org/abs/1908.03650">https://arxiv.org/abs/1908.03650</a></p>
+      <p id="ref-exaqt">Jia, Z., Pramanik, S., Saha Roy, R., &amp; Weikum, G. (2021). Complex temporal question answering on knowledge graphs. In <em>Proceedings of the 30th ACM International Conference on Information &amp; Knowledge Management (CIKM '21)</em>. <a href="https://doi.org/10.1145/3459637.3482416">https://doi.org/10.1145/3459637.3482416</a></p>
+      <p id="ref-multitq">Chen, Z., Liao, J., &amp; Zhao, X. (2023). Multi-granularity temporal question answering over knowledge graphs. In <em>Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)</em>, 11378-11392. <a href="https://aclanthology.org/2023.acl-long.637/">https://aclanthology.org/2023.acl-long.637/</a></p>
+      <p id="ref-tilp">Xiong, S., Yang, Y., Fekri, F., &amp; Kerce, J. C. (2023). TILP: Differentiable learning of temporal logical rules on knowledge graphs. In <em>The Eleventh International Conference on Learning Representations (ICLR 2023)</em>. <a href="https://openreview.net/forum?id=_X12NmQKvX">https://openreview.net/forum?id=_X12NmQKvX</a></p>
+      <p id="ref-teilp">Xiong, S., Yang, Y., Payani, A., Kerce, J. C., &amp; Fekri, F. (2024). TEILP: Time prediction over knowledge graphs via logical reasoning. In <em>Proceedings of the AAAI Conference on Artificial Intelligence, 38</em>(14), 16112-16120. <a href="https://doi.org/10.1609/aaai.v38i14.29544">https://doi.org/10.1609/aaai.v38i14.29544</a></p>
+      <p id="ref-progtqa">Chen, Z., Zhang, Z., Li, Z., Wang, F., Zeng, Y., Jin, X., &amp; Xu, Y. (2024). Self-improvement programming for temporal knowledge graph question answering. In <em>Proceedings of the 2024 Joint International Conference on Computational Linguistics, Language Resources and Evaluation (LREC-COLING 2024)</em>. <a href="https://arxiv.org/abs/2404.01720">https://arxiv.org/abs/2404.01720</a></p>
+      <p id="ref-tremu">Ge, Y., Romeo, S., Cai, J., Shu, R., Benajiba, Y., Sunkara, M., &amp; Zhang, Y. (2025). TReMu: Towards neuro-symbolic temporal reasoning for LLM-agents with memory in multi-session dialogues. In <em>Findings of the Association for Computational Linguistics: ACL 2025</em>, 18974-18988. <a href="https://aclanthology.org/2025.findings-acl.972/">https://aclanthology.org/2025.findings-acl.972/</a></p>
+      <p id="ref-rtqa">Gong, Z., Li, J., Liu, Z., Liang, L., Chen, H., &amp; Zhang, W. (2025). RTQA: Recursive thinking for complex temporal knowledge graph question answering with large language models. In <em>Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing (EMNLP 2025)</em>. <a href="https://aclanthology.org/2025.emnlp-main.499/">https://aclanthology.org/2025.emnlp-main.499/</a></p>
+      <p id="ref-rlm">Zhang, A. L., Kraska, T., &amp; Khattab, O. (2025). Recursive Language Models. <em>arXiv preprint arXiv:2512.24601</em>. <a href="https://arxiv.org/abs/2512.24601">https://arxiv.org/abs/2512.24601</a></p>
+    </article>
+  </main>
+</body>
+</html>

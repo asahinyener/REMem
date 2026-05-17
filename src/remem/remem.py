@@ -24,7 +24,7 @@ from remem.llm import BaseLLM, _get_llm_class
 from remem.prompts import PromptTemplateManager
 from remem.prompts.linking import get_query_instruction
 from remem.rerank import DSPyFilter
-from remem.utils.config_utils import BaseConfig
+from remem.utils.config_utils import BaseConfig, sanitize_config_for_logging
 from remem.utils.datetime_utils import parse_flexible_datetime
 from remem.utils.embed_utils import retrieve_knn
 from remem.utils.misc_utils import (
@@ -94,7 +94,9 @@ class ReMem:
         """
         self.global_config = global_config if global_config else BaseConfig()
 
-        _print_config = ",\n  ".join([f"{k} = {v}" for k, v in asdict(self.global_config).items()])
+        _print_config = ",\n  ".join(
+            [f"{k} = {v}" for k, v in sanitize_config_for_logging(asdict(self.global_config)).items()]
+        )
         logger.debug(f"ReMem init with config:\n  {_print_config}\n")
 
         if working_dir is None:
@@ -223,8 +225,9 @@ class ReMem:
     @property
     def embedding_model(self) -> BaseEmbeddingModel:
         if self._embedding_model is None:
-            self._embedding_model = _get_embedding_client(embedding_model_name=self.global_config.embedding_model_name)(
-                global_config=self.global_config, embedding_model_name=self.global_config.embedding_model_name
+            self._embedding_model = _get_embedding_client(
+                global_config=self.global_config,
+                embedding_model_name=self.global_config.embedding_model_name,
             )
         return self._embedding_model
 
@@ -701,6 +704,7 @@ class ReMem:
                 self.global_config.agent_fixed_tools,
                 self.global_config.agent_max_steps,
                 self.global_config.extract_method,
+                getattr(self.global_config, "agent_type", "legacy"),
             )
             filename = f"rag_results_{inference_type}.json"
             rag_results_path = os.path.join(self.working_dir, filename)

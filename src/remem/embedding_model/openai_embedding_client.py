@@ -14,7 +14,11 @@ from filelock import FileLock
 from openai import AzureOpenAI, OpenAI
 from tqdm import tqdm
 
-from ..utils.config_utils import BaseConfig
+from ..utils.config_utils import (
+    BaseConfig,
+    is_openai_embedding_model,
+    resolve_embedding_api_key,
+)
 from ..utils.logging_utils import get_logger
 from .base import BaseEmbeddingModel, EmbeddingConfig
 
@@ -94,7 +98,7 @@ class OpenAIEmbeddingModel(BaseEmbeddingModel):
         global_config: Optional[BaseConfig] = None,
         embedding_model_name: Optional[str] = None,
         api_key: Optional[str] = None,
-        base_url: Optional[str] = "https://api.openai.com/v1/embeddings",
+        base_url: Optional[str] = "https://api.openai.com/v1/",
         max_retries: int = 3,
         **kwargs,
     ) -> None:
@@ -124,16 +128,18 @@ class OpenAIEmbeddingModel(BaseEmbeddingModel):
             # Use OpenAI client for any online embedding service
             assert self.base_url is not None, "Base URL must be provided for OpenAI embedding service"
 
-            if "text-embedding-3-" in self.embedding_model_name:
-                if api_key is None:
-                    api_key = os.getenv("OPENAI_API_KEY")
-                assert api_key is not None, "API key must be provided or OPENAI_API_KEY must be set"
-            else:
-                # For custom/local embedding endpoints that don't require authentication,
-                # use a placeholder key. The OpenAI client requires a non-None key, but
-                # the custom endpoint will ignore it.
-                if api_key is None:
-                    api_key = os.getenv("EMBEDDING_API_KEY", "not-needed-for-local-server")
+            api_key = resolve_embedding_api_key(
+                config=self.global_config,
+                embedding_model_name=self.embedding_model_name,
+                api_key=api_key,
+            )
+            if is_openai_embedding_model(self.embedding_model_name):
+                assert (
+                    api_key is not None
+                ), "EMBEDDING_API_KEY or OPENAI_API_KEY must be set for official OpenAI embedding models"
+            elif api_key is None:
+                # Local OpenAI-style servers may not require auth, but the client still expects a non-empty key.
+                api_key = "not-needed-for-local-server"
 
             self.openai_client = OpenAI(api_key=api_key, timeout=60, max_retries=5, base_url=base_url)
 

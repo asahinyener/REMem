@@ -1,3 +1,5 @@
+from remem.utils.config_utils import resolve_embedding_api_key, resolve_embedding_base_url
+
 from .base import BaseEmbeddingModel, EmbeddingConfig
 
 
@@ -5,11 +7,18 @@ def _get_embedding_client(global_config, embedding_model_name: str = "nvidia/NV-
     if "text-embedding" in embedding_model_name or openai_style_server:
         from .openai_embedding_client import CacheOpenAIEmbeddingModel
 
-        if openai_style_server and "text-embedding" not in embedding_model_name:  # Local server, using OpenAI style API
-            base_url = "http://localhost:8001/v1/"
-        else:  # Using OpenAI official embedding API
-            base_url = "https://api.openai.com/v1/"
-        embedding_client = CacheOpenAIEmbeddingModel(None, global_config, embedding_model_name, base_url=base_url)
+        base_url = resolve_embedding_base_url(
+            config=global_config,
+            embedding_model_name=embedding_model_name,
+            openai_style_server=openai_style_server,
+        )
+        embedding_client = CacheOpenAIEmbeddingModel(
+            None,
+            global_config,
+            embedding_model_name,
+            api_key=resolve_embedding_api_key(global_config, embedding_model_name=embedding_model_name),
+            base_url=base_url,
+        )
     elif "GritLM" in embedding_model_name:
         from .GritLM import GritLMEmbeddingModel
 

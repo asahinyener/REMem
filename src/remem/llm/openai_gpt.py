@@ -11,7 +11,7 @@ from filelock import FileLock
 from openai import OpenAI
 from tqdm import tqdm
 
-from remem.utils.config_utils import BaseConfig
+from remem.utils.config_utils import BaseConfig, resolve_llm_api_key
 from remem.utils.llm_utils import TextChatMessage
 from remem.utils.logging_utils import get_logger
 
@@ -187,9 +187,8 @@ class CacheOpenAI(BaseLLM):
             self.openai_client = AzureOpenAI(timeout=60, max_retries=5)
         else:
             # Use standard OpenAI API
-            if api_key is None:
-                api_key = os.getenv("OPENAI_API_KEY")
-            assert api_key is not None, "OPENAI_API_KEY must be set or provided as api_key parameter"
+            api_key = resolve_llm_api_key(api_key=api_key or kwargs.get("llm_api_key"))
+            assert api_key is not None, "LLM_API_KEY or OPENAI_API_KEY must be set or provided as api_key parameter"
             assert self.llm_base_url is not None, "llm_base_url must be set"
             self.openai_client = OpenAI(base_url=self.llm_base_url, api_key=api_key, timeout=60, max_retries=5)
 
