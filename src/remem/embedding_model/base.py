@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from remem.utils.config_utils import BaseConfig
+from remem.utils.config_utils import BaseConfig, sanitize_config_for_logging
 from remem.utils.logging_utils import get_logger
 
 logger = get_logger(__name__)
@@ -191,7 +191,7 @@ class BaseEmbeddingModel:
 
         # Safely convert to dict for logging
         if is_dataclass(self.global_config):
-            config_dict = asdict(self.global_config)
+            config_dict = sanitize_config_for_logging(asdict(self.global_config))
         else:
             config_dict = str(self.global_config)
         logger.debug(f"Loading {self.__class__.__name__} with global_config: {config_dict}")
