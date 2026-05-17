@@ -1,6 +1,7 @@
 import inspect
 import json
 import os
+import shutil
 from pathlib import Path
 
 import dspy
@@ -35,6 +36,20 @@ def main():
     ok = ok and has_max_depth
     print(f"dspy_rlm_file: {inspect.getsourcefile(dspy.RLM)}")
     print(f"dspy_rlm_recursive_max_depth: {'ok' if has_max_depth else 'missing'}")
+
+    deno_path = shutil.which("deno")
+    print(f"deno: {'ok' if deno_path else 'missing'} ({deno_path or 'not on PATH'})")
+
+    llm_base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    llm_model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+    embedding_model = os.environ.get("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
+    has_llm_key = bool(os.environ.get("OPENAI_API_KEY") or os.environ.get("LLM_API_KEY"))
+    has_embedding_key = bool(os.environ.get("OPENAI_API_KEY") or os.environ.get("EMBEDDING_API_KEY"))
+    print(f"llm_base_url: {llm_base_url}")
+    print(f"llm_model: {llm_model}")
+    print(f"embedding_model: {embedding_model}")
+    print(f"llm_credential: {'ok' if has_llm_key else 'missing'}")
+    print(f"embedding_credential: {'ok' if has_embedding_key else 'missing'}")
 
     if trace_path.exists():
         trace = json.loads(trace_path.read_text())

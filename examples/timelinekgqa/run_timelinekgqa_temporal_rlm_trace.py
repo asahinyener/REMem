@@ -2,6 +2,8 @@ import json
 import os
 from pathlib import Path
 
+import litellm
+
 from remem.embedding_model import _get_embedding_client
 from remem.llm import CacheOpenAI
 from remem.remem import ReMem
@@ -47,6 +49,10 @@ def add_light_distractors(dataset_dir, events, max_distractors=8):
 
 
 def main():
+    # GPT-5 family models reject some legacy chat params, including temperature=0.
+    # Let LiteLLM drop provider-unsupported parameters while preserving the run path.
+    litellm.drop_params = os.environ.get("LITELLM_DROP_PARAMS", "true").lower() == "true"
+
     dataset_dir = Path(os.environ.get("TIMELINEKGQA_DATASET_DIR", "../external/timelinekgqa/Datasets"))
     question_id = int(os.environ.get("TIMELINEKGQA_QUESTION_ID", "25107"))
     sample = load_question(dataset_dir, question_id)
