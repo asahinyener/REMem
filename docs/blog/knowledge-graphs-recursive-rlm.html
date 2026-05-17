@@ -154,6 +154,15 @@
     </div>
 
     <article>
+      <h2>Abstract</h2>
+      <p>Information retrieval from sources that change over time requires systems to structure facts and preserve the attributes that make those facts valid at a particular time. Human work and scientific knowledge belong to this class of sources: the state of the art moves, and the usefulness of any fact often depends on when it was true. This problem connects to KGQA and temporal KGQA work.</p>
+      <p>The ontology of time-sensitive facts and the methods for storing them are wide and varied, from bitemporal databases to Allen interval algebra, event calculus, and programmable temporal KGQA systems. Still, many approaches share a small common interface for analysis: extract entities, predicates, and temporal qualifiers; store them in a structure that can be searched; then answer questions by retrieving and comparing the relevant facts.</p>
+      <p>This demonstration uses a knowledge-graph method. It extracts named entities and predicates from raw data into a processed triplet structure. Named entities become graph nodes. Predicates are encoded into graph edges. Temporal attributes preserve when a fact applies.</p>
+      <p>Some questions over this time graph explicitly require comparison across separate triplet entries. Those questions are multi-hop reasoning problems. Classical symbolic operations over string-formatted dates are enough to compute an answer once the right facts are supplied. The harder part is finding those facts. Decomposing a query into components and fetching information in parallel can increase search depth without paying a proportional attention-context cost, and prior retrieval-time QA work suggests that this can improve accuracy at lower cost.</p>
+      <p>Tool calling with Python functions fits modern LLMs well because pretraining data contains abundant examples of code, APIs, and program-like problem solving. Modern harnesses combine autoregressive generation with executable programming environments, giving tool-calling LLMs a REPL-like state. DSPy's RLM treats each turn as emitted code executed against a REPL, then returns both REPL state and produced output to the model.</p>
+      <p>The function of interest here is the ability to call sub-LLMs with their own scoped REPL environments. This lets the model write retrieval and execution stages as Python code, delegate independent branches, and receive stateful context from those sub-LLM calls.</p>
+      <p>An RLM harness can delegate execution and aggregation to symbolic processing. A knowledge graph lets those processes interact with raw knowledge through semantic queries and graph operations. This demo builds on the ReMem architecture, a DSPy-enabled RLM harness, and Deno-backed Python execution through the bundled runtime path. It exposes intermediate stages and representations so readers can inspect how temporal retrieval, graph tools, and recursive language-model control fit together.</p>
+
       <h2>Knowledge Graphs</h2>
       <p>A knowledge graph stores facts as entities and relationships.</p>
       <pre><code>Andre Hahn --position held--&gt; member of the German Bundestag
